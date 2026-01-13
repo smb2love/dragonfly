@@ -18,6 +18,8 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2" //nolint
 	. "github.com/onsi/gomega"    //nolint
@@ -25,6 +27,31 @@ import (
 	"d7y.io/dragonfly/v2/pkg/idgen"
 	"d7y.io/dragonfly/v2/test/e2e/util"
 )
+
+func dfcacheImportWithRetry(clientPod *util.PodExec, cmd string) ([]byte, error) {
+	var (
+		out []byte
+		err error
+	)
+
+	// The client host can be temporarily missing in persistent-cache host manager (redis),
+	// e.g. during (re-)announces. Retry only this known transient condition.
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		out, err = clientPod.Command("sh", "-c", cmd).CombinedOutput()
+		if err == nil {
+			return out, nil
+		}
+
+		outStr := string(out)
+		if strings.Contains(outStr, "host ") && strings.Contains(outStr, " not found") && time.Now().Before(deadline) {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		return out, err
+	}
+}
 
 var _ = Describe("Import and Export Using Dfcache", func() {
 	Context("1MiB file", func() {
@@ -61,7 +88,7 @@ var _ = Describe("Import and Export Using Dfcache", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testFile.GetSha256()).To(Equal(sha256sum))
 
-			importOut, err := clientPod.Command("sh", "-c", fmt.Sprintf("dfcache import %s --persistent-replica-count 1 --content-for-calculating-task-id %s", testFile.GetOutputPath(), testFile.GetSha256())).CombinedOutput()
+			importOut, err := dfcacheImportWithRetry(clientPod, fmt.Sprintf("dfcache import %s --persistent-replica-count 1 --content-for-calculating-task-id %s", testFile.GetOutputPath(), testFile.GetSha256()))
 			fmt.Println(string(importOut), err)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -118,7 +145,7 @@ var _ = Describe("Import and Export Using Dfcache", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testFile.GetSha256()).To(Equal(sha256sum))
 
-			importOut, err := clientPod.Command("sh", "-c", fmt.Sprintf("dfcache import %s --persistent-replica-count 1 --content-for-calculating-task-id %s", testFile.GetOutputPath(), testFile.GetSha256())).CombinedOutput()
+			importOut, err := dfcacheImportWithRetry(clientPod, fmt.Sprintf("dfcache import %s --persistent-replica-count 1 --content-for-calculating-task-id %s", testFile.GetOutputPath(), testFile.GetSha256()))
 			fmt.Println(string(importOut), err)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -175,7 +202,7 @@ var _ = Describe("Import and Export Using Dfcache", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testFile.GetSha256()).To(Equal(sha256sum))
 
-			importOut, err := clientPod.Command("sh", "-c", fmt.Sprintf("dfcache import %s --persistent-replica-count 1 --content-for-calculating-task-id %s", testFile.GetOutputPath(), testFile.GetSha256())).CombinedOutput()
+			importOut, err := dfcacheImportWithRetry(clientPod, fmt.Sprintf("dfcache import %s --persistent-replica-count 1 --content-for-calculating-task-id %s", testFile.GetOutputPath(), testFile.GetSha256()))
 			fmt.Println(string(importOut), err)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -232,7 +259,7 @@ var _ = Describe("Import and Export Using Dfcache", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testFile.GetSha256()).To(Equal(sha256sum))
 
-			importOut, err := clientPod.Command("sh", "-c", fmt.Sprintf("dfcache import %s --persistent-replica-count 1 --content-for-calculating-task-id %s", testFile.GetOutputPath(), testFile.GetSha256())).CombinedOutput()
+			importOut, err := dfcacheImportWithRetry(clientPod, fmt.Sprintf("dfcache import %s --persistent-replica-count 1 --content-for-calculating-task-id %s", testFile.GetOutputPath(), testFile.GetSha256()))
 			fmt.Println(string(importOut), err)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -289,7 +316,7 @@ var _ = Describe("Import and Export Using Dfcache", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testFile.GetSha256()).To(Equal(sha256sum))
 
-			importOut, err := clientPod.Command("sh", "-c", fmt.Sprintf("dfcache import %s --persistent-replica-count 1 --content-for-calculating-task-id %s", testFile.GetOutputPath(), testFile.GetSha256())).CombinedOutput()
+			importOut, err := dfcacheImportWithRetry(clientPod, fmt.Sprintf("dfcache import %s --persistent-replica-count 1 --content-for-calculating-task-id %s", testFile.GetOutputPath(), testFile.GetSha256()))
 			fmt.Println(string(importOut), err)
 			Expect(err).NotTo(HaveOccurred())
 
